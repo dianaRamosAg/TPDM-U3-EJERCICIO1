@@ -1,11 +1,10 @@
 package mx.edu.ittepic.tpdm_u3_ejercicio1
 
+import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.widget.Button
-import android.widget.EditText
-import android.widget.ListView
-import android.widget.Toast
+import android.widget.*
+import androidx.appcompat.app.AlertDialog
 import com.google.firebase.firestore.FirebaseFirestore
 
 class MainActivity : AppCompatActivity() {
@@ -53,6 +52,54 @@ class MainActivity : AppCompatActivity() {
                 }  //Cuando falla una insercion  internet
             limpiarCampos()
         }//Insertar
+
+        baseRemota.collection("eventos")
+            .addSnapshotListener { querySnapshot, e ->
+                if(e!=null){
+                    Toast.makeText(this,"Error no se puede consultar",Toast.LENGTH_SHORT).show()
+                    return@addSnapshotListener
+                }
+                registrosRemotos.clear()
+                keys.clear()
+                for(document in querySnapshot!!){
+                    var cadena= document.getString("descripcion")+"\n"+
+                                       document.getString("fecha")+"--"+
+                                       document.getString("lugar")
+                        registrosRemotos.add(cadena)
+                        keys.add(document.id)
+                }
+                if(registrosRemotos.size==0){registrosRemotos.add("NO HAY DATOS AUN PARA MOSTRAR")}
+                var adapter=ArrayAdapter<String>(this,android.R.layout.simple_list_item_1,registrosRemotos)
+                listView?.adapter=adapter
+            }
+
+        listView?.setOnItemClickListener { parent, view, position, id ->
+            if(keys.size==0){return@setOnItemClickListener}
+
+            AlertDialog.Builder(this).setTitle("ATENION")
+                .setMessage("¿Qué deseas hacer con : "+registrosRemotos.get(position)+" ?")
+                .setPositiveButton("Eliminar"){dialog,which->
+                    baseRemota.collection("eventos")
+                        .document(keys.get(position)).delete()  //Eliminar Registro
+                        .addOnSuccessListener {
+                            Toast.makeText(this,"Evento eliminado",Toast.LENGTH_SHORT)
+                        }
+                        .addOnFailureListener {
+                            Toast.makeText(this,"Evento no eliminado",Toast.LENGTH_SHORT)
+                        }
+                }
+                .setNegativeButton("Actualizar"){dialog,which->
+                    var nuevaVentana=Intent(this,Main2Activity::class.java)
+                    nuevaVentana.putExtra("id",keys.get(position))
+                    startActivity(nuevaVentana)
+
+                }
+                .setNeutralButton("Cancelar"){dialog,which->}
+                .show()
+
+        }
+
+
     }//onCreate
 
     fun limpiarCampos() {
